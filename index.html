@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- The page runs only its own scripts, and the only place it can send data is the Claude API. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://api.anthropic.com; img-src 'self' data:; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta name="referrer" content="no-referrer">
+<title>CEA Work Test Trainer</title>
+<meta name="description" content="Timed practice for cost-effectiveness analysis work tests. Build the model in a spreadsheet, hand it in, and get a 1–100 score against written anchors.">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header class="bar">
+  <div class="wrap">
+    <a class="brand" href="#/">CEA Work Test Trainer<small id="caseShort"></small></a>
+    <div class="clock" id="clock" aria-live="off" hidden>60:00</div>
+  </div>
+</header>
+
+<div class="wrap">
+<main>
+
+  <!-- Stage 0: the case library -->
+  <section class="stage" id="stageLibrary" hidden>
+    <div class="eyebrow">Practice for cost-effectiveness work tests</div>
+    <h1>Build the model against the clock. Get scored on the mistakes graders look for.</h1>
+    <p class="lede">Each case gives you a brief and a messy data pack and starts a timer. You build a back-of-the-envelope cost-effectiveness model in Excel or Google Sheets and hand in the file. Claude grades it from 1 to 100 against written anchors and tells you the one fix that would raise your score most.</p>
+    <div class="cases" id="caseList"></div>
+    <div class="panel">
+      <h3>What it trains</h3>
+      <ul class="plain">
+        <li><b>Counterfactuals and attribution.</b> Measuring against what would have happened anyway, and sharing credit with other actors.</li>
+        <li><b>Model mechanics.</b> The right base, every cost, consistent units, and each discount applied once.</li>
+        <li><b>The decision and its crux.</b> Whether the bar is cleared, and the value at which the answer flips.</li>
+        <li><b>Legibility under time pressure.</b> Flagged assumptions and cited inputs that a teammate can audit in five minutes.</li>
+      </ul>
+    </div>
+    <details><summary>How the score is built: every anchor</summary><div class="anchors" id="rubricLibrary"></div></details>
+    <div class="panel" id="historyPanel" hidden>
+      <h3>Your past attempts</h3>
+      <div class="tablebox"><table id="historyTable"></table></div>
+      <p class="note">Kept in this browser only. Treat one attempt's total as ±5 and read trends across three or more.</p>
+    </div>
+  </section>
+
+  <!-- Stage 1: the case card -->
+  <section class="stage" id="stageIntro" hidden>
+    <div class="eyebrow">Practice case · not yet started</div>
+    <h1 id="caseTitle"></h1>
+    <p class="lede" id="caseLede"></p>
+    <div class="meta" id="caseMeta"></div>
+    <div class="panel">
+      <h3>How it works</h3>
+      <ol class="steps">
+        <li>Starting the clock shows the brief and the data. Reading counts toward the time, as it does in a real work test.</li>
+        <li>Build your model in Excel or Google Sheets. In Sheets, use File → Download → Microsoft Excel (.xlsx).</li>
+        <li>Upload the file and hand it in. Claude grades it from 1 to 100 against the anchors below, using your own Anthropic API key, or in a Claude chat if you don't have one.</li>
+      </ol>
+      <div class="row">
+        <button class="primary" id="startBtn" type="button">Start the clock</button>
+        <span class="note" id="resumeNote" hidden></span>
+      </div>
+    </div>
+    <details><summary>How the score is built: every anchor</summary><div class="anchors" id="rubricIntro"></div></details>
+    <p><a href="#/">← All cases</a></p>
+  </section>
+
+  <!-- Stage 2: brief, data, hand-in -->
+  <section class="stage" id="stageWork" hidden>
+    <div class="eyebrow">The brief</div>
+    <h1 id="caseTitle2"></h1>
+    <div class="panel" id="briefPanel"></div>
+    <div class="panel">
+      <div class="row spread">
+        <h3>Data pack</h3>
+        <div class="row">
+          <button id="dlBtn" type="button">Download as .xlsx</button>
+          <button id="copyBtn" type="button">Copy as table</button>
+        </div>
+      </div>
+      <p class="note" id="dlNote">Cite items by their ID (D1, D2…) in your sheet.</p>
+      <ol class="items" id="dataItems"></ol>
+    </div>
+
+    <div class="panel">
+      <h3>Hand in your sheet</h3>
+      <label class="drop" id="drop" tabindex="0">
+        <strong>Drop your .xlsx here, or choose a file</strong>
+        <span class="note">.xlsx, .xls, .ods or .csv. Formulas, values and cell comments are read. Cell colours may not be, so if you colour-code, add a column that says what each row is.</span>
+        <input type="file" id="fileInput" accept=".xlsx,.xls,.ods,.csv" hidden>
+      </label>
+      <div id="fileInfo" class="status" hidden></div>
+      <div class="legend" aria-label="A common cell colour convention">
+        <span class="c-citation">Data / citation</span>
+        <span class="c-estimate">Estimate</span>
+        <span class="c-judgement">Value judgement</span>
+        <span class="c-calc">Calculated</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Score with your API key</h3>
+      <div class="field">
+        <label for="apiKey">Anthropic API key</label>
+        <div class="row">
+          <input type="password" id="apiKey" autocomplete="off" spellcheck="false" placeholder="sk-ant-…">
+          <button id="forgetKey" type="button">Forget key</button>
+        </div>
+        <label class="check"><input type="checkbox" id="rememberKey"> Remember the key on this device</label>
+      </div>
+      <p class="note">Your key stays in this browser and is sent only to the Claude API (api.anthropic.com). Without "remember", it is cleared when you close the tab. One grading on <span id="modelName"></span> usually costs 10–35 US cents. <a href="https://platform.claude.com/settings/keys" target="_blank" rel="noopener noreferrer">Get a key</a>.</p>
+      <div class="row">
+        <button class="primary" id="scoreBtn" type="button" disabled>Hand in and score</button>
+        <button id="stopBtn" type="button" hidden>Stop</button>
+      </div>
+      <div id="scoreStatus" class="status" role="status" hidden></div>
+    </div>
+
+    <details class="panel-like" id="fallback">
+      <summary>No API key? Score it in a Claude chat</summary>
+      <div class="stack">
+        <p class="note" id="fallbackWhy">Copy the grading prompt, paste it into a new chat at claude.ai, then paste Claude's JSON reply here. Copying the prompt counts as handing in.</p>
+        <div class="row"><button id="copyPromptBtn" type="button" disabled>Copy the grading prompt</button></div>
+        <textarea id="pasteBack" placeholder='{"headline": …, "dimensions": [ … ], …}' aria-label="Claude's JSON reply"></textarea>
+        <div class="row"><button class="primary" id="pasteBtn" type="button">Show my score</button></div>
+        <div id="pasteErr" class="err" hidden></div>
+      </div>
+    </details>
+  </section>
+
+  <!-- Stage 3: result -->
+  <section class="stage" id="stageResult" hidden>
+    <div class="eyebrow">Your score · <span id="resultCase"></span></div>
+    <div class="panel">
+      <div class="scorehead">
+        <div class="bignum" id="total">0<small>/100</small></div>
+        <div class="stack tight">
+          <div class="band" id="bandName"></div>
+          <p class="note" id="bandText"></p>
+          <p class="note" id="timeLine"></p>
+        </div>
+      </div>
+      <p id="summary"></p>
+      <p class="note" id="headlineLine"></p>
+      <p class="note" id="gradedBy"></p>
+    </div>
+    <div class="fix" id="fixBox"><div class="eyebrow">Fix this first next time</div><p id="fix"></p></div>
+    <div class="panel"><h3>Score by dimension</h3><div class="dims" id="dims"></div></div>
+    <div class="panel"><h3>The considerations this case plants</h3><div class="traps" id="considerations"></div></div>
+    <div class="panel" id="strengthsPanel"><h3>What you did well</h3><ul class="plain" id="strengths"></ul></div>
+    <details><summary>Reference model and reasoning</summary><div class="stack" id="reference"></div></details>
+    <details><summary>Every anchor</summary><div class="anchors" id="rubricResult"></div></details>
+    <div class="row">
+      <button id="againBtn" type="button">Try this case again</button>
+      <a class="btn" href="#/">All cases</a>
+    </div>
+  </section>
+
+</main>
+</div>
+
+<footer class="foot">
+  <div class="wrap">
+    <p class="note">Open source under the MIT licence: <a href="https://github.com/OttoTutzHell/cea-trainer" rel="noopener noreferrer">github.com/OttoTutzHell/cea-trainer</a>. Your sheet and key never leave this browser except in the grading request to the Claude API. Scores come from a language model: treat them as practice feedback, not a verdict.</p>
+  </div>
+</footer>
+
+<script src="vendor/xlsx.full.min.js"></script>
+<script src="vendor/anthropic-sdk.min.js"></script>
+<script src="src/core.js"></script>
+<!-- One line per case. `npm run check` fails if a file in cases/ is missing here. -->
+<script src="cases/cage-free-pledges.js"></script>
+<script src="src/workbook.js"></script>
+<script src="src/grader.js"></script>
+<script src="src/app.js"></script>
+</body>
+</html>

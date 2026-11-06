@@ -1,0 +1,4 @@
+* text=auto eol=lf
+*.xlsx binary
+*.min.js -diff linguist-vendored
+vendor/** linguist-vendored

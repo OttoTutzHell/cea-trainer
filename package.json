@@ -1,0 +1,19 @@
+{
+  "name": "cea-trainer",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Timed practice for cost-effectiveness analysis work tests, graded by Claude against written anchors.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "check": "node scripts/check-cases.mjs",
+    "vendor": "node scripts/vendor.mjs",
+    "calibration": "node scripts/make-calibration.mjs",
+    "serve": "node scripts/serve.mjs"
+  },
+  "devDependencies": {
+    "@anthropic-ai/sdk": "1.2.0",
+    "esbuild": "0.28.2",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+  }
+}
